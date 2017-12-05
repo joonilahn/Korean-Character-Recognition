@@ -163,7 +163,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         shutil.copyfile(filename, 'model_best.pth.tar')
 
 
-def test_model(val_loader, model, mode='Validate', use_gpu):
+def test_model(val_loader, model, use_gpu, mode='Validate'):
     # Test or validate the Model
     model.eval()  # Change model to 'eval' mode (BN uses moving mean/var).
     correct = 0
@@ -171,18 +171,17 @@ def test_model(val_loader, model, mode='Validate', use_gpu):
     for images, labels in val_loader:
         if use_gpu:
                 images = Variable(images.cuda(), volatile=True)
-                labels = Variable(labels.cuda(), volatile=True)
+                labels = labels.cuda()
         else:
                 images = Variable(images, volatile=True)
-                labels = Variable(labels, volatile=True)
         # compute output
         output = model(images)
         _, predicted = torch.max(output.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum()
-    
+
     acc = 100 * correct / total
-    print('{0:%s} Accuracy: {1:.4f} %%'.format(mode, acc))
+    print('{0:} Accuracy: {1:.4f}%%'.format(mode, acc))
     return acc
 
 def main(num_epochs, batch_size, learning_rate, root_dir):
@@ -267,7 +266,7 @@ def main(num_epochs, batch_size, learning_rate, root_dir):
                        %(epoch+1, num_epochs, i, len(train_idx)//batch_size, loss.data[0]))
 
         # evaluate on validation set
-        valacc = test_model(val_loader, cnn)
+        valacc = test_model(val_loader, cnn, use_gpu)
 
         # remember best prec@1 and save checkpoint
         is_best = valacc > best_acc
@@ -281,7 +280,7 @@ def main(num_epochs, batch_size, learning_rate, root_dir):
 
 
     # Test the Model
-    testacc = test_model(test_loader, cnn, mode='Test')
+    testacc = test_model(test_loader, cnn, use_gpu, mode='Test')
 
     # Save the Trained Model
     torch.save(cnn.state_dict(), 'cnn_2layers.pkl')
