@@ -46,7 +46,6 @@ class HangulDataset(Dataset):
         img_name = self.filenames[idx]
         target = self.targets[idx]
         sample = imread(img_name, mode='L')
-        sample = (sample - 0.97) / 0.09
         if self.transform:
             sample = self.transform(sample)
         return (sample, target)
@@ -78,9 +77,6 @@ class Rescale(object):
 
         img = transform.resize(image, (self.output_size, self.output_size),
                                mode='reflect')
-
-        # h and w are swapped for landmarks because for images,
-        # x and y axes are axis 1 and 0 respectively
         return img
     
 class RandomCrop(object):
@@ -125,7 +121,65 @@ class ToTensor(object):
             image = sample.transpose((2, 0, 1))
         sampletensor = torch.from_numpy(image)
         return sampletensor.type(torch.FloatTensor)
+    
+class ObjectCrop(object):
+    """Use findContours function of OpenCV to detect object and crop the images"""            
+    def __call__(self, sample):
+        # Find contours
+        (_, contours, _) = cv2.findContours(sample.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+        # if no contour found
+        if len(contours) == 0:
+            return sample
+
+        # one contour found
+        if len(contours) == 1:
+            [x, y, w, h] = cv2.boundingRect(contours[0])
+            yh = y + h
+            xw = x + w
+
+        # multiple contours found
+        else:
+            for i, contour in enumerate(contours):
+                if i==0:
+                    [x, y, w, h] = cv2.boundingRect(contour)
+                    yh = y + h
+                    xw = x + w
+                else:
+                    [new_x, new_y, new_w, new_h] = cv2.boundingRect(contour)
+                    # Ignore too narrow contours (outliers)
+                    if new_w < 5or new_h < 5:
+                        continue
+                    new_yh = new_y + new_h
+                    new_xw = new_x + new_w
+                    if new_x < x:
+                        x = new_x
+                    if new_y < y:
+                        y = new_y
+                    if new_yh > yh: 
+                        yh = new_yh
+                    if new_xw > xw:
+                        xw = new_xw
+        if yh-y < 50 or xw-x < 50:
+            return sample
+        else:
+            return sample[y:yh, x:xw]
+        
+class Denoise(object):
+    """Stablize pixel values of images."""
+    def __call__(self, sample):
+        sample = cv2.threshold(sample, 225, 255, cv2.THRESH_BINARY_INV)[1]
+        return sample
+    
+class Normalize(object):
+    """Normalize images."""
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+    def __call__(self, sample):
+        return (sample - self.mean) / self.std
+
+# train model function
 def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=25):
     since = time.time()
 
@@ -154,10 +208,17 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
 
                 # wrap them in Variable
                 if use_gpu:
-                    inputs = Variable(inputs).float().cuda()
-                    labels = Variable(labels).long().cuda()
+                    if phase == 'train':
+                        inputs = Variable(inputs).float().cuda()
+                        labels = Variable(labels).long().cuda()
+                    else:
+                        inputs = Variable(inputs, volatile=True).float().cuda()
+                        labels = Variable(labels, volatile=True).long().cuda()
                 else:
-                    inputs, labels = Variable(inputs).float(), Variable(labels).long()
+                    if phase == 'train':
+                        inputs, labels = Variable(inputs).float(), Variable(labels).long()
+                    else:
+                        inputs, labels = Variable(inputs, volatile=True).float(), Variable(labels, volatile=True).long()
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -181,8 +242,8 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
                     print('Epoch: {0:}/{1:}, Iterations: {2:}/{3:}, Training loss: {4:6.2f}'.
                      format(epoch+1, num_epochs, i+1, len(dataloaders[phase]), loss.data[0]))
                 
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects / dataset_sizes[phase]
+            epoch_loss = running_loss / len(dataloaders[phase])
+            epoch_acc = running_corrects / len(dataloaders[phase])
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
@@ -203,20 +264,36 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
     model.load_state_dict(best_model_wts)
     return model
 
+def test_model(model, testloader):
+    model.eval()
+    correct = 0
+    total = 0
+    for images, labels in testloader:
+        images = Variable(images)
+        outputs = model(images)
+        _, preds = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += torch.sum(preds == labels.data)
+
+    acc = 100 * correct / total
+    print('Test Accuracy of the model on the 10000 test images: %.2f %' % (acc))
+    return acc
+
 def main():
-    hangul_dataset = HangulDataset('set01', transform=Rescale(256))
+    # Load dataset
     transformed_dataset = HangulDataset(root_dir='set01',
-                                        transform=transforms.Compose([
-                                        Rescale(256),
-                                        RandomCrop(224),
-                                        ToTensor(),
-                                        transforms.Lambda(lambda x: torch.cat([x, x, x], 0)),
-                                               ]))
-    dataloader = DataLoader(transformed_dataset, batch_size=100,
-                            shuffle=True)
-    
+                                    transform=transforms.Compose([
+                                    Denoise(),
+                                    ObjectCrop(),
+                                    Normalize(50.81, 110.16),
+                                    Rescale(224),
+                                    ToTensor(),  
+                                    transforms.Lambda(lambda x: torch.cat([x, x, x], 0)),
+                                           ]))
+    # Load pretrained model
     pretrained_model = models.vgg19_bn(pretrained=True)
-    # create custom VGG19_bn
+
+    # create custom VGG19_bn class
     class CustomVGG19bn(nn.Module):
         def __init__(self, num_classes):
             super(CustomVGG19bn, self).__init__()
@@ -243,7 +320,7 @@ def main():
         param.requires_grad = True
     
     # train, test data split
-    num_data = len(hangul_dataset.filenames)
+    num_data = len(transformed_dataset)
     indices = list(range(num_data))
     np.random.seed(42)
     np.random.shuffle(indices)
@@ -275,7 +352,7 @@ def main():
     test_loader = DataLoader(transformed_dataset, 
                             batch_size=batch_size, sampler=test_sampler)
     
-    dataloaders = {'train':train_loader, 'val':val_loader, 'test':test_loader}
+    dataloaders = {'train':train_loader, 'val':val_loader}
 
     if use_gpu:
         model = model.cuda()
@@ -290,6 +367,9 @@ def main():
     # Train the model
     model = train_model(model, criterion, optimizer, exp_lr_scheduler, dataloaders,
                        num_epochs=num_epochs)
+
+    # Test the model
+    testacc = test_model(model, test_loader)
 
 if __name__ == '__main__':
     main()
