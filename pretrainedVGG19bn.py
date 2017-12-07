@@ -333,7 +333,7 @@ def main():
     train_idx, val_idx, test_idx = indices[val_split:], indices[test_split:val_split] , indices[:test_split]
 
     # Hyper Parameters
-    num_epochs = 1
+    num_epochs = 20
     batch_size = 100
     learning_rate = 0.001
 
