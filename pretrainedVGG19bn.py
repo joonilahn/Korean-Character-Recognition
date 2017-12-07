@@ -11,6 +11,7 @@ from torchvision import transforms, utils, models
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 from scipy.ndimage import imread
+import cv2
 
 DEFAULT_LEARNING_RATE = 0.0001
 DEFAULT_NUM_EPOCHS = 20
@@ -43,7 +44,7 @@ class HangulDataset(Dataset):
                         os.path.join(self.root_dir, self.subroot, label) + '/*')
             self.filenames += files
             self.targets += [i] * len(files)
-            self.targetdict[i] = int(label, 16)
+            self.targetdict[i] = chr( int(label, 16) )
             
     def __len__(self):
         return len(self.filenames)
@@ -188,9 +189,9 @@ class Normalize(object):
 # train model function
 def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=25):
     since = time.time()
-
     best_model_wts = model.state_dict()
     best_acc = 0.0
+    savepath = 'model' + str(num_epochs)
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch+1, num_epochs))
@@ -245,8 +246,8 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
                 
                 # print every 10 iterations
                 if (i+1) % 10 == 0:
-                    print('Epoch: {0:}/{1:}, Iterations: {2:}/{3:}, Training loss: {4:6.2f}'.
-                     format(epoch+1, num_epochs, i+1, len(dataloaders[phase]), loss.data[0]))
+                    print('Epoch: {0:}/{1:}, Iterations: {2:}/{3:}, {4:} loss: {5:6.2f}'.
+                     format(epoch+1, num_epochs, i+1, len(dataloaders[phase]), phase, loss.data[0]))
                 
             epoch_loss = running_loss / len(dataloaders[phase])
             epoch_acc = running_corrects / len(dataloaders[phase])
@@ -258,8 +259,8 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = model.state_dict()
-
-        print()
+                torch.save(best_model_wts, savepath + '/bestmodel.pt')
+                
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -285,9 +286,9 @@ def test_model(model, testloader):
     print('Test Accuracy of the model on the 10000 test images: %.4f' % (acc))
     return acc
 
-def main(num_epochs, batch_size, learning_rate, root_dir):
+def main(num_epochs, batch_size, learning_rate, root_dir, num_classes):
     # Load dataset
-    transformed_dataset = HangulDataset(root_dir='set01',
+    transformed_dataset = HangulDataset(root_dir=root_dir,
                                     transform=transforms.Compose([
                                     Denoise(),
                                     ObjectCrop(),
@@ -395,4 +396,4 @@ if __name__ == '__main__':
                         default=DEFAULT_NUM_CLASSES,
                         help='Set number of classes')
     args = parser.parse_args()
-    main(args.num_epochs, args.batch_size, args.learning_rate, args.root_dir, arg.num_classes)
+    main(args.num_epochs, args.batch_size, args.learning_rate, args.root_dir, args.num_classes)
