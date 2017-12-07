@@ -191,7 +191,6 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
     since = time.time()
     best_model_wts = model.state_dict()
     best_acc = 0.0
-    savepath = 'model' + str(num_epochs)
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch+1, num_epochs))
@@ -260,7 +259,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = model.state_dict()
-                torch.save(best_model_wts, savepath + '/bestmodel.pt')
+                torch.save(best_model_wts, 'bestmodel.pt')
                 
 
     time_elapsed = time.time() - since
