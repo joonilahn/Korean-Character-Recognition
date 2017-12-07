@@ -12,6 +12,12 @@ from torch.autograd import Variable
 from torch.optim import lr_scheduler
 from scipy.ndimage import imread
 
+DEFAULT_LEARNING_RATE = 0.0001
+DEFAULT_NUM_EPOCHS = 20
+DEFAULT_BATCH_SIZE = 128
+DEFAULT_ROOT_DIR = 'set01'
+DEFAULT_NUM_CLASSES = 2350
+
 # use gpu if cuda is available
 use_gpu = torch.cuda.is_available()
 
@@ -275,11 +281,11 @@ def test_model(model, testloader):
         total += labels.size(0)
         correct += torch.sum(preds == labels.data)
 
-    acc = 100 * correct / total
-    print('Test Accuracy of the model on the 10000 test images: %.2f %' % (acc))
+    acc = correct / total
+    print('Test Accuracy of the model on the 10000 test images: %.4f' % (acc))
     return acc
 
-def main():
+def main(num_epochs, batch_size, learning_rate, root_dir):
     # Load dataset
     transformed_dataset = HangulDataset(root_dir='set01',
                                     transform=transforms.Compose([
@@ -310,7 +316,7 @@ def main():
             return x
 
     # load custom model
-    model = CustomVGG19bn(num_classes=2350)
+    model = CustomVGG19bn(num_classes=num_classes)
 
     # freeze parameters
     for param in model.parameters():
@@ -333,9 +339,9 @@ def main():
     train_idx, val_idx, test_idx = indices[val_split:], indices[test_split:val_split] , indices[:test_split]
 
     # Hyper Parameters
-    num_epochs = 20
-    batch_size = 100
-    learning_rate = 0.001
+    # num_epochs = 20
+    # batch_size = 100
+    # learning_rate = 0.001
 
      # Define sampler
     train_sampler = SubsetRandomSampler(train_idx)
@@ -362,7 +368,7 @@ def main():
     optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
 
     # Decay LR by a factor of 0.1 every 7 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.05)
 
     # Train the model
     model = train_model(model, criterion, optimizer, exp_lr_scheduler, dataloaders,
@@ -372,4 +378,21 @@ def main():
     testacc = test_model(model, test_loader)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--learning-rate', type=float, dest='learning_rate',
+                        default=DEFAULT_LEARNING_RATE,
+                        help='Set learning rate')
+    parser.add_argument('--num-epochs', type=int, dest='num_epochs',
+                        default=DEFAULT_NUM_EPOCHS,
+                        help='Set number of epochs')
+    parser.add_argument('--batch-size', type=int, dest='batch_size',
+                        default=DEFAULT_BATCH_SIZE,
+                        help='Set batch size')
+    parser.add_argument('--root-dir', type=str, dest='root_dir',
+                        default=DEFAULT_ROOT_DIR,
+                        help='Set root directory which containing image files. e.g. set01')
+    parser.add_argument('--num-classes', type=str, dest='num_classes',
+                        default=DEFAULT_NUM_CLASSES,
+                        help='Set number of classes')
+    args = parser.parse_args()
+    main(args.num_epochs, args.batch_size, args.learning_rate, args.root_dir, arg.num_classes)
