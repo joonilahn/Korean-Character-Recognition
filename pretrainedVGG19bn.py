@@ -207,7 +207,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
 
             running_loss = 0.0
             running_corrects = 0
-
+            running_total = 0
             # Iterate over data.
             for i, data in enumerate(dataloaders[phase]):
                 # get the inputs
@@ -243,14 +243,15 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
                 # statistics
                 running_loss += loss.data[0]
                 running_corrects += torch.sum(preds == labels.data)
-                
+                running_total += len(labels.data)
+
                 # print every 10 iterations
                 if (i+1) % 10 == 0:
                     print('Epoch: {0:}/{1:}, Iterations: {2:}/{3:}, {4:} loss: {5:6.2f}'.
                      format(epoch+1, num_epochs, i+1, len(dataloaders[phase]), phase, loss.data[0]))
                 
             epoch_loss = running_loss / len(dataloaders[phase])
-            epoch_acc = running_corrects / len(dataloaders[phase])
+            epoch_acc = running_corrects / running_total
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
@@ -392,7 +393,7 @@ if __name__ == '__main__':
     parser.add_argument('--root-dir', type=str, dest='root_dir',
                         default=DEFAULT_ROOT_DIR,
                         help='Set root directory which containing image files. e.g. set01')
-    parser.add_argument('--num-classes', type=str, dest='num_classes',
+    parser.add_argument('--num-classes', type=int, dest='num_classes',
                         default=DEFAULT_NUM_CLASSES,
                         help='Set number of classes')
     args = parser.parse_args()
