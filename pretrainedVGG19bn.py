@@ -260,7 +260,9 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
                 best_acc = epoch_acc
                 best_model_wts = model.state_dict()
                 torch.save(best_model_wts, 'bestmodel.pt')
-                
+        # save checkpoint
+        if epoch % 3 == 0:
+            save_model(model, optimizer, epoch)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -274,16 +276,16 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
 def test_model(model, testloader):
     if use_gpu:
         model = model.cuda()
-
     model.eval()
     correct = 0
     total = 0
     print('Testing the model')
     for images, labels in testloader:
         if use_gpu:
-            images = Variable(images).float().cuda()
+            images = Variable(images, volatile=True).float().cuda()
+            labels = labels.cuda()
         else:
-            images = Variable(images).float()
+            images = Variable(images, volatile=True).float()
         outputs = model(images)
         _, preds = torch.max(outputs.data, 1)
         total += labels.size(0)
@@ -292,6 +294,17 @@ def test_model(model, testloader):
     acc = correct / total
     print('Test Accuracy of the model on the %d test images: %.4f' % (total, acc))
     return acc
+
+def save_model(model, optimizer, epoch, filename='checkpoint.pth.tar'):
+    state_dict = model.module.state_dict()                                                                                                                                                                         
+    for key in state_dict.keys():                                                                                                                                                                                
+        state_dict[key] = state_dict[key].cpu()                                                                                                                                                                  
+                                                                                                                                                                                                                 
+    torch.save({                                                                                                                                                                                                 
+            'epoch': epoch,                                                                                                                                                                                     
+            'state_dict': state_dict,                                                                                                                                                                                
+            'optimizer': optimizer},                                                                                                                                                                                     
+            filename)
 
 def main(num_epochs, batch_size, learning_rate, root_dir, num_classes):
     # Load dataset
