@@ -32,15 +32,28 @@ class HangulDataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.root_dir = root_dir
+        if root_dir == 'all':
+            self.root_dir = ['set01', 'set02', 'set03', 'set04', 'set05',
+                                  'set06', 'set07', 'set08', 'set09']
+        else:
+            self.root_dir = root_dir
         self.subroot = subroot
         self.transform = transform
-        self.classlist = os.listdir(os.path.join(root_dir, self.subroot))
+        if root_dir == 'all':
+            self.classlist = os.listdir(os.path.join(self.root_dir[0], self.subroot))
+        else:
+            self.classlist = os.listdir(os.path.join(self.root_dir, self.subroot))
         self.targets = []
         self.filenames = []
         self.targetdict = {}
         for i, label in enumerate(self.classlist):
-            files = glob.glob(
+            if root_dir == 'all':
+                files = []
+                for rootdir in self.root_dir:
+                    files += glob.glob(
+                        os.path.join(rootdir, self.subroot, label) + '/*')
+            else:
+                files = glob.glob(
                         os.path.join(self.root_dir, self.subroot, label) + '/*')
             self.filenames += files
             self.targets += [i] * len(files)
