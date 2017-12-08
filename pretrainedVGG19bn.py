@@ -275,15 +275,16 @@ def test_model(model, testloader):
     model.eval()
     correct = 0
     total = 0
+    print('Testing the model')
     for images, labels in testloader:
         images = Variable(images)
         outputs = model(images)
         _, preds = torch.max(outputs.data, 1)
         total += labels.size(0)
-        correct += torch.sum(preds == labels.data)
+        correct += torch.sum(preds == labels)
 
     acc = correct / total
-    print('Test Accuracy of the model on the 10000 test images: %.4f' % (acc))
+    print('Test Accuracy of the model on the %d test images: %.4f' % (total, acc))
     return acc
 
 def main(num_epochs, batch_size, learning_rate, root_dir, num_classes):
