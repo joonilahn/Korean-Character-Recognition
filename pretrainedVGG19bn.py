@@ -261,7 +261,33 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
                 if (i+1) % 100 == 0:
                     print('Epoch: {0:}/{1:}, Iterations: {2:}/{3:}, {4:} loss: {5:6.2f}'.
                      format(epoch+1, num_epochs, i+1, len(dataloaders[phase]), phase, loss.data[0]))
-                
+
+                if i % 1000 == 0:
+                    #============ TensorBoard logging ============#
+                    # Save log file every 1000 iteration
+                    # (1) Log the scalar values
+                    if phase == 'train':
+                        info = {
+                            'epoch': epoch,
+                            'train loss': loss.data[0],
+                            'train accuracy': running_corrects/running_total
+                        }
+                        for tag, value in info.items():
+                            logger.scalar_summary(tag, value, i+1)
+                    else:
+                        info = {
+                            'epoch': epoch,
+                            'validation loss': loss.data[0],
+                            'validation accuracy': running_corrects/running_total
+                        }
+                        for tag, value in info.items():
+                            logger.scalar_summary(tag, value, i+1)
+                    # # (2) Log values and gradients of the parameters (histogram)
+                    # for tag, value in model.named_parameters():
+                    #     tag = tag.replace('.', '/')
+                    #     logger.histo_summary(tag, value.data.cpu().numpy(), i+1)
+                    #     logger.histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), i+1)
+
             epoch_loss = running_loss / len(dataloaders[phase])
             epoch_acc = running_corrects / running_total
 
@@ -403,6 +429,9 @@ def main(num_epochs, batch_size, learning_rate, root_dir, num_classes):
 
     # Decay LR by a factor of 0.1 every 7 epochs
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.05)
+
+    # Set the logger
+    logger = Logger('./logs')
 
     # Train the model
     model = train_model(model, criterion, optimizer, exp_lr_scheduler, dataloaders,
