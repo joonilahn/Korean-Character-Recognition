@@ -258,7 +258,7 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
                 running_total += len(labels.data)
 
                 # print every 10 iterations
-                if (i+1) % 10 == 0:
+                if (i+1) % 100 == 0:
                     print('Epoch: {0:}/{1:}, Iterations: {2:}/{3:}, {4:} loss: {5:6.2f}'.
                      format(epoch+1, num_epochs, i+1, len(dataloaders[phase]), phase, loss.data[0]))
                 
@@ -295,7 +295,7 @@ def test_model(model, testloader):
     print('Testing the model')
     for images, labels in testloader:
         if use_gpu:
-            images = Variable(images, volatile=True).float().cuda()
+            images = Variable(images, volatile=True).cuda()
             labels = labels.cuda()
         else:
             images = Variable(images, volatile=True).float()
@@ -309,7 +309,7 @@ def test_model(model, testloader):
     return acc
 
 def save_model(model, optimizer, epoch, filename='checkpoint.pth.tar'):
-    state_dict = model.module.state_dict()                                                                                                                                                                         
+    state_dict = model.state_dict()                                                                                                                                                                         
     for key in state_dict.keys():                                                                                                                                                                                
         state_dict[key] = state_dict[key].cpu()                                                                                                                                                                  
                                                                                                                                                                                                                  
@@ -407,7 +407,7 @@ def main(num_epochs, batch_size, learning_rate, root_dir, num_classes):
     # Train the model
     model = train_model(model, criterion, optimizer, exp_lr_scheduler, dataloaders,
                        num_epochs=num_epochs)
-
+    # model.load_state_dict(torch.load('bestmodel.pt'))
     # Test the model
     testacc = test_model(model, test_loader)
 
