@@ -272,12 +272,18 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
     return model
 
 def test_model(model, testloader):
+    if use_gpu:
+        model = model.cuda()
+
     model.eval()
     correct = 0
     total = 0
     print('Testing the model')
     for images, labels in testloader:
-        images = Variable(images)
+        if use_gpu:
+            images = Variable(images).float().cuda()
+        else:
+            images = Variable(images).float()
         outputs = model(images)
         _, preds = torch.max(outputs.data, 1)
         total += labels.size(0)
