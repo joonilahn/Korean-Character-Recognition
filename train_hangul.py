@@ -10,7 +10,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision import transforms, utils, models
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
-from scipy.ndimage import imread
+from scipy.ndimage import imread, median_filter
 import cv2
 from logger import Logger
 from datetime import datetime
@@ -276,6 +276,7 @@ class Denoise(object):
             clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8,8))
             sample = clahe.apply(sample)
         sample = cv2.threshold(sample, 225, 255, cv2.THRESH_BINARY_INV)[1]
+        sample = median_filter(sample, 3)
         return sample
     
 class Normalize(object):
@@ -532,7 +533,7 @@ def main(num_epochs, batch_size, learning_rate, root_dir, num_classes, use_model
 
     # Write result in json file
     resultdict = {'Model':use_model, 'Test_accuracy':testacc, 'Learning_rate':learning_rate,
-                    'Epochs':num_epochs, 'Batch_size':batch_size, 'Num_classes':num_classes 'Datasets':root_dir}
+                    'Epochs':num_epochs, 'Batch_size':batch_size, 'Num_classes':num_classes, 'Datasets':root_dir}
     now = datetime.now()
     jsonfile = "result_" + now.strftime("%Y%m%d-%H%M%S") + ".json"
     with open(jsonfile, 'w') as f:
