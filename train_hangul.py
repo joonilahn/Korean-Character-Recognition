@@ -18,45 +18,12 @@ from datetime import datetime
 DEFAULT_LEARNING_RATE = 0.0001
 DEFAULT_NUM_EPOCHS = 20
 DEFAULT_BATCH_SIZE = 128
-DEFAULT_ROOT_DIR = 'set01'
+DEFAULT_ROOT_DIR = 'all'
 DEFAULT_NUM_CLASSES = 2350
 DEFAULT_USE_MODEL = 'vgg19'
 
 # use gpu if cuda is available
 use_gpu = torch.cuda.is_available()
-
-# CNN Model (2 conv layer)
-class Baseline(nn.Module):
-    def __init__(self, num_classes):
-        super(Baseline, self).__init__()
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 16, kernel_size=5, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(2))
-                
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(16, 32, kernel_size=5, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2))
-        
-        self.classifier = nn.Sequential(
-            nn.Linear(93312, 4096),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(4096, 4096),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(4096, num_classes)
-        )
-
-    def forward(self, x):
-        x = self.layer1(x.float())
-        x = self.layer2(x)
-        x = x.view(x.size(0), -1)
-        out = self.classifier(x)
-        return out
 
 # Custom VGG19_bn
 class CustomVGG19bn(nn.Module):
@@ -71,27 +38,6 @@ class CustomVGG19bn(nn.Module):
     def forward(self, x):
         x = self.features(x)
         x = x.view(x.size(0), 512*7*7)
-        out = self.classifier(x)
-        return out
-
-# Custom resnet50
-class CustomResnet50(nn.Module):
-    def __init__(self, num_classes):
-        super(CustomResnet50, self).__init__()
-        self.features = nn.Sequential(*list(models.resnet50(pretrained=True).children())[:9])
-        self.classifier = nn.Sequential(
-            nn.Linear(2048, 4096),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(4096, 4096),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(4096, num_classes)
-        )
-    
-    def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), 2048)
         out = self.classifier(x)
         return out
 
@@ -180,17 +126,6 @@ class Rescale(object):
         self.output_size = output_size
 
     def __call__(self, image):
-        h, w = image.shape[:2]
-        if isinstance(self.output_size, int):
-            if h > w:
-                new_h, new_w = self.output_size * h / w, self.output_size
-            else:
-                new_h, new_w = self.output_size, self.output_size * w / h
-        else:
-            new_h, new_w = self.output_size
-
-        new_h, new_w = int(new_h), int(new_w)
-
         img = transform.resize(image, (self.output_size, self.output_size),
                                mode='reflect')
         return img
@@ -211,81 +146,43 @@ class ToTensor(object):
         return sampletensor.type(torch.FloatTensor)
     
 class ObjectCrop(object):
-    """Use findContours function of OpenCV to detect object and crop the images"""            
+    """Crop out extra space of the image"""            
     def __call__(self, sample):
-        height, width = sample.shape[0], sample.shape[1]
-        recrop = 0
-        # Find contours
-        (_, contours, _) = cv2.findContours(sample.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        maxpix = sample.max()
+        brightidx = np.where(sample > maxpix*0.9)
 
-        # if no contour found
-        if len(contours) == 0:
+        if np.sum(brightidx) == 0:
             return sample
 
-        # one contour found
-        if len(contours) == 1:
-            [x, y, w, h] = cv2.boundingRect(contours[0])
-            yh = y + h
-            xw = x + w
-
-        # multiple contours found
         else:
-            for i, contour in enumerate(contours):
-                if i==0:
-                    [x, y, w, h] = cv2.boundingRect(contour)
-                    yh = y + h
-                    xw = x + w
-                else:
-                    [new_x, new_y, new_w, new_h] = cv2.boundingRect(contour)
-                    # Ignore too narrow contours (outliers)
-                    if new_w < 5or new_h < 5:
-                        continue
-                    new_yh = new_y + new_h
-                    new_xw = new_x + new_w
-                    if new_x < x:
-                        x = new_x
-                    if new_y < y:
-                        y = new_y
-                    if new_yh > yh: 
-                        yh = new_yh
-                    if new_xw > xw:
-                        xw = new_xw
-
-        if yh-y < 50 or xw-x < 50:
-            recrop = 1
-        else:
-            if yh-y > height*0.97 and xw-x > width*0.97:
-                recrop = 1
-            else:
-                sample = sample[y:yh, x:xw]
-
-        if recrop == 0:
-            return sample
-        else:
-            maxpix = sample.max()
-            brightidx = np.where(sample > maxpix*0.8)
+            brightidx = np.where(sample > maxpix*0.9)
             min_h, min_w = np.min(brightidx, axis=1)
             max_h, max_w = np.max(brightidx, axis=1)
-            sample = sample[min_h:max_h, min_w:max_w]
-            return sample
+            if max_h - min_h < 10 or max_w - min_w < 10:
+                return sample
+            else:
+                return sample[min_h:max_h, min_w:max_w]
 
 class Denoise(object):
-    """Stablize pixel values of images."""
+    """Remove background noise"""
     def __call__(self, sample):
-        if sample.min() > 200:
+        if sample.min() > 160:
             clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8,8))
             sample = clahe.apply(sample)
+            sample = cv2.threshold(sample, 254, 255, cv2.THRESH_BINARY_INV)[1]
+            sample = median_filter(sample, 5)
+            return sample
         sample = cv2.threshold(sample, 225, 255, cv2.THRESH_BINARY_INV)[1]
-        sample = median_filter(sample, 3)
+        sample = median_filter(sample, 5)
         return sample
     
-class Normalize(object):
-    """Normalize images."""
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
-    def __call__(self, sample):
-        return (sample - self.mean) / self.std
+# class Normalize(object):
+#     """Normalize images."""
+#     def __init__(self, mean, std):
+#         self.mean = mean
+#         self.std = std
+#     def __call__(self, sample):
+#         return (sample - self.mean) / self.std
 
 # train model function
 def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=25):
@@ -375,11 +272,6 @@ def train_model(model, criterion, optimizer, scheduler, dataloaders, num_epochs=
                         }
                         for tag, value in info.items():
                             logger.scalar_summary(tag, value, i+1)
-                    # # (2) Log values and gradients of the parameters (histogram)
-                    # for tag, value in model.named_parameters():
-                    #     tag = tag.replace('.', '/')
-                    #     logger.histo_summary(tag, value.data.cpu().numpy(), i+1)
-                    #     logger.histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), i+1)
 
             epoch_loss = running_loss / len(dataloaders[phase])
             epoch_acc = running_corrects / running_total
@@ -442,35 +334,17 @@ def save_model(model, optimizer, epoch, filename='checkpoint.pth.tar'):
 
 def main(num_epochs, batch_size, learning_rate, root_dir, num_classes, use_model):
     # load model
-    if use_model == "vgg19":
-        model = CustomVGG19bn(num_classes=num_classes)
-    if use_model == "resnet50":
-        model = CustomResnet50(num_classes=num_classes)
-    if use_model == "baseline":
-        model = Baseline(num_classes=num_classes)
-
-    # Load dataset
-    if use_model == "baseline":
-        transformed_dataset = HangulDataset(root_dir=root_dir,
-                                    transform=transforms.Compose([
-                                    Denoise(),
-                                    ObjectCrop(),
-                                    Normalize(50.81, 110.16),
-                                    Rescale(224),
-                                    ToTensor(),  
-                                           ]),
-                                    num_class=num_classes)
-    else: 
-        transformed_dataset = HangulDataset(root_dir=root_dir,
-                                    transform=transforms.Compose([
-                                    Denoise(),
-                                    ObjectCrop(),
-                                    Normalize(50.81, 110.16),
-                                    Rescale(224),
-                                    ToTensor(),  
-                                    transforms.Lambda(lambda x: torch.cat([x, x, x], 0)),
-                                           ]),
-                                    num_class=num_classes)
+    model = CustomVGG19bn(num_classes=num_classes)
+    transformed_dataset = HangulDataset(root_dir=root_dir,
+                                transform=transforms.Compose([
+                                Denoise(),
+                                ObjectCrop(),
+                                # Normalize(50.81, 110.16),
+                                Rescale(224),
+                                ToTensor(),  
+                                transforms.Lambda(lambda x: torch.cat([x, x, x], 0))
+                                       ]),
+                                num_class=num_classes)
 
     # freeze parameters
     for param in model.parameters():
@@ -492,11 +366,6 @@ def main(num_epochs, batch_size, learning_rate, root_dir, num_classes, use_model
     num_train = num_data - val_split - test_split
     train_idx, val_idx, test_idx = indices[val_split:], indices[test_split:val_split] , indices[:test_split]
 
-    # Hyper Parameters
-    # num_epochs = 20
-    # batch_size = 100
-    # learning_rate = 0.001
-
      # Define sampler
     train_sampler = SubsetRandomSampler(train_idx)
     val_sampler = SubsetRandomSampler(val_idx)
@@ -508,9 +377,6 @@ def main(num_epochs, batch_size, learning_rate, root_dir, num_classes, use_model
 
     val_loader = DataLoader(transformed_dataset, 
                             batch_size=batch_size, sampler=val_sampler)
-
-    test_loader = DataLoader(transformed_dataset, 
-                            batch_size=batch_size, sampler=test_sampler)
     
     dataloaders = {'train':train_loader, 'val':val_loader}
 
@@ -522,13 +388,16 @@ def main(num_epochs, batch_size, learning_rate, root_dir, num_classes, use_model
     optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
 
     # Decay LR by a factor of 0.1 every 7 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.05)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.05)
 
     # Train the model
     model = train_model(model, criterion, optimizer, exp_lr_scheduler, dataloaders,
                        num_epochs=num_epochs)
     # model.load_state_dict(torch.load('bestmodel.pt'))
+
     # Test the model
+    test_loader = DataLoader(transformed_dataset, 
+                            batch_size=batch_size, sampler=test_sampler)
     testacc = test_model(model, test_loader)
 
     # Write result in json file
