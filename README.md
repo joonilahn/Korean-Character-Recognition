@@ -21,18 +21,18 @@ The images are variant in resolutions while the model needs a consistent input s
 * Resize the images to 224 x 224
 
 <img src='pics/rawimages.png' width=320>
-### Before preprocessing
+__Before preprocessing__
 <img src='pics/preprocessed.png' width=320>
-### After preprocessing
-<img src='pics/preprocessed.png' width=640>
-### Preprocessing steps
+__After preprocessing__
+<img src='pics/transform.png' width=480>
+__Preprocessing steps__
 
-2. Build the model
+## Build the model
 VGG-19 model is used in this project. The VGG-19 model was trained on ImageNet data for 1,000 number of classes. Here, we modify the number of classes from 1,000 to 2,350 which is the number of different Korean characters we want to classify.
 <img src='pics/vgg19arch.png' width=640>
 
-3. Experiments and Result
-3.1. Training Setups
+## Experiments and Result
+### Training Setups
 * Number of Training Images: 1,280,218 (60%)
 * Number of Validation Images: 426,738 (20%)
 * Number of Test Images: 426,738 (20%)
@@ -41,15 +41,15 @@ VGG-19 model is used in this project. The VGG-19 model was trained on ImageNet d
 * Number of epochs: 20
 * Batch size: 128
 
-3.2. Result
+### Result
 We achieved 96.69% of training accuracy and 84.57% of test accuracy.
 <img src='pics/figures.png' width=640>
 
-3.3. Limitations
+## Limitations
 The classifier was confused about the following cases.
 * Too bold examples
 * Too similar characters
 
-Possible solutions?
+### Possible solutions?
 We may mitigate the problems if we train models for consonants and vowels separately and combine together for inference.
 Then we need **Object Detection** and **Object Localization** models to discriminate the consonants and vowels in the initial stage.
