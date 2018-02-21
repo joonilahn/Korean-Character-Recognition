@@ -21,12 +21,15 @@ The images are variant in resolutions while the model needs a consistent input s
 * Resize the images to 224 x 224
 
 **Before preprocessing**
-![Raw Images](pics/rawimages.png "RawImages")<img width="320"></img>
+
+<img src='pics/rawimages.png' width=320>
 
 **After preprocessing**
+
 <img src='pics/preprocessed.png' width=320>
 
 **Preprocessing steps**
+
 <img src='pics/transform.png' width=480>
 
 ## Build the model
