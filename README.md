@@ -17,10 +17,7 @@ The images are variant in resolutions while the model needs a consistent input s
 * Removing noises with median filters
 * Cropping images
 
-<img src='pics/rawimages.png' width=320>
-<Before>
-<img src='pics/preprocessed.png' width=320>
-<After>
+<img src='pics/rawimages.png' width=320> <img src='pics/preprocessed.png' width=320>
 
 
 
