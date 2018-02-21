@@ -20,12 +20,14 @@ The images are variant in resolutions while the model needs a consistent input s
 * Crop the images
 * Resize the images to 224 x 224
 
+**Before preprocessing**
 <img src='pics/rawimages.png' width=320>
-__Before preprocessing__
+
+**After preprocessing**
 <img src='pics/preprocessed.png' width=320>
-__After preprocessing__
+
+**Preprocessing steps**
 <img src='pics/transform.png' width=480>
-__Preprocessing steps__
 
 ## Build the model
 VGG-19 model is used in this project. The VGG-19 model was trained on ImageNet data for 1,000 number of classes. Here, we modify the number of classes from 1,000 to 2,350 which is the number of different Korean characters we want to classify.
