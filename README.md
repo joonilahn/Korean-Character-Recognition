@@ -12,13 +12,14 @@ Over 2,000,000 of handwritten characters were used to train the model.
 * PyTorch was used in this code. We can use TensorBoard for the visulalization in PyTorch. For more information, visit [https://github.com/yunjey/pytorch-tutorial/tree/master/tutorials/04-utils/tensorboard](https://github.com/yunjey/pytorch-tutorial/tree/master/tutorials/04-utils/tensorboard).
 
 ## How It Works
-1. Preprocess the images
-The images are variant in resolutions while the model needs a consistent input size, 224 × 224. We need to remove the noises in the images and crop the images into 224 x 224. There are four steps to preprocess the images for them to be feeded into the model.
+### Preprocess the images
 
-* Remove noises from the images with median filters
-* Normalize the pixels of the image in range of [0,1]
-* Crop the images
-* Resize the images to 224 x 224
+* The images are variant in resolutions while the model needs a consistent input size, 224 × 224. We need to remove the noises in the images and crop the images into 224 x 224. There are four steps to preprocess the images for them to be feeded into the model.
+
+- Remove noises from the images with median filters
+- Normalize the pixels of the image in range of [0,1]
+- Crop the images
+- Resize the images to 224 x 224
 
 **Before preprocessing**
 
