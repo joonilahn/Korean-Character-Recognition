@@ -54,10 +54,10 @@ Inception V3 network is one of the state-of-the-art CNN network and it shows ver
 ### Result
 Inception-v3 shows much better performance in training time and accuracy.
 
-|     Model     | Test Accuracy |
-| :------------:| ----------: |
-| VGG-19        |    84.57%   |
-| Inception-v3  |    96.26%   |
+|     Model     | Train Accuracy | Test Accuracy |
+| :------------:| ----------: | ----------: |
+| VGG-19        |    96.69%   |    84.57%   |
+| Inception-v3  |    96.73%   |    96.27%   |
 
 <img src='pics/figures.png' width=640>
 
