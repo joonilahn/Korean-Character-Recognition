@@ -387,7 +387,7 @@ def main(num_epochs, batch_size, learning_rate, root_dir, num_classes, use_model
     # Observe that all parameters are being optimized
     optimizer = torch.optim.Adam(model.classifier.parameters(), lr=learning_rate)
 
-    # Decay LR by a factor of 0.1 every 7 epochs
+    # Decay LR by a factor of 0.1 every 5 epochs
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.05)
 
     # Train the model
